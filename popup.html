@@ -35,6 +35,12 @@ body{width:420px;min-height:200px;font-family:-apple-system,BlinkMacSystemFont,'
 textarea{width:100%;background:#1a1a24;border:0.5px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;color:#f0ede8;font-size:12px;font-family:-apple-system,sans-serif;line-height:1.5;resize:vertical;min-height:90px;outline:none;transition:border-color 0.15s;}
 textarea:focus{border-color:#7c6af5;}
 textarea::placeholder{color:#6b6880;}
+.char-row{display:flex;justify-content:space-between;align-items:center;margin-top:4px;min-height:16px;}
+.char-count{font-size:10px;font-family:monospace;color:#6b6880;transition:color 0.2s;}
+.char-count.warn{color:#f5a623;}
+.char-count.danger{color:#f55858;}
+.char-warn{font-size:10px;color:#f5a623;display:none;}
+.char-warn.show{display:block;}
 .selected-banner{background:rgba(124,106,245,0.08);border:0.5px solid rgba(124,106,245,0.2);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:#a594f9;cursor:pointer;}
 .selected-banner:hover{background:rgba(124,106,245,0.12);}
 .check-btn{width:100%;margin-top:10px;background:linear-gradient(135deg,#7c6af5,#a594f9);border:none;border-radius:8px;padding:9px;color:white;font-size:12px;font-weight:500;cursor:pointer;transition:opacity 0.15s;}
@@ -89,7 +95,7 @@ textarea::placeholder{color:#6b6880;}
 .d-badge.true{background:rgba(45,217,143,0.12);color:#2dd98f;}
 .d-badge.partial{background:rgba(245,166,35,0.12);color:#f5a623;}
 .d-badge.false{background:rgba(245,88,88,0.12);color:#f55858;}
-.d-badge.na{background:#1a1a24;color:#6b6880;}
+.d-badge.unknown,.d-badge.na{background:#1a1a24;color:#6b6880;}
 .d-note{font-size:11px;color:#6b6880;line-height:1.5;}
 .claim-item{margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid rgba(255,255,255,0.05);}
 .claim-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
@@ -97,6 +103,7 @@ textarea::placeholder{color:#6b6880;}
 .c-tag.true{background:rgba(45,217,143,0.1);color:#2dd98f;}
 .c-tag.partial{background:rgba(245,166,35,0.1);color:#f5a623;}
 .c-tag.false{background:rgba(245,88,88,0.1);color:#f55858;}
+.c-tag.unknown{background:#1a1a24;color:#6b6880;}
 .c-text{font-size:11px;color:#f0ede8;font-style:italic;margin-bottom:3px;line-height:1.5;}
 .c-exp{font-size:11px;color:#6b6880;line-height:1.5;}
 .rvf-label{font-size:9px;font-family:monospace;margin-bottom:5px;margin-top:8px;}
@@ -177,7 +184,11 @@ textarea::placeholder{color:#6b6880;}
     <button class="stab" data-src="other">Бусад</button>
   </div>
   <div class="inp-label" id="inp-label">Шалгах текстийг оруулна уу</div>
-  <textarea id="text-input" placeholder="Пост, мэдээ, нийтлэлийн текст..."></textarea>
+  <textarea id="text-input" placeholder="Пост, мэдээ, нийтлэлийн текст..." maxlength="8000"></textarea>
+  <div class="char-row">
+    <span class="char-warn" id="char-warn">⚠ Урт текст — шинжилгээ удаан болно</span>
+    <span class="char-count" id="char-count">0 / 8000</span>
+  </div>
   <div class="error-box" id="error-box"></div>
   <button class="check-btn" id="check-btn">Гүнзгий шинжилгээ — 8 салбар + Вэб хайлт</button>
 </div>

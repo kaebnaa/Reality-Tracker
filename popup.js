@@ -101,6 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => setSrc(btn, btn.dataset.src));
   });
 
+  document.getElementById('text-input').addEventListener('input', updateCharCount);
+
   // Async өгөгдөл уншилт тусдаа функцад
   initStorage();
 });
@@ -129,6 +131,7 @@ async function initStorage() {
 
     if (pending) {
       document.getElementById('text-input').value = pending;
+      updateCharCount();
       const src = (await chromeGet('pendingSource')) || 'other';
       const tab = document.querySelector(`.stab[data-src="${src}"]`);
       if (tab) setSrc(tab, src);
@@ -145,6 +148,15 @@ async function initStorage() {
 
 function chromeGet(key) {
   return new Promise(resolve => chrome.storage.local.get(key, r => resolve(r[key])));
+}
+
+function updateCharCount() {
+  const len = document.getElementById('text-input').value.length;
+  const countEl = document.getElementById('char-count');
+  const warnEl = document.getElementById('char-warn');
+  countEl.textContent = len.toLocaleString() + ' / 8,000';
+  countEl.className = 'char-count' + (len >= 6000 ? ' danger' : len >= 3000 ? ' warn' : '');
+  warnEl.className = 'char-warn' + (len >= 3000 ? ' show' : '');
 }
 
 function showView(name) {
@@ -179,6 +191,7 @@ async function useSelected() {
   const sel = await chromeGet('selectedText');
   if (sel) {
     document.getElementById('text-input').value = sel;
+    updateCharCount();
     document.getElementById('selected-banner').style.display = 'none';
     chrome.storage.local.remove('selectedText');
   }
@@ -191,10 +204,11 @@ function showErr(msg) {
 }
 
 async function doCheck() {
-  const text = document.getElementById('text-input').value.trim();
+  let text = document.getElementById('text-input').value.trim();
   document.getElementById('error-box').style.display = 'none';
   if (!apiKey) { showView('settings'); return; }
   if (!text) { showErr('Шалгах текстийг оруулна уу.'); return; }
+  if (text.length > 7000) text = text.slice(0, 7000);
 
   document.getElementById('check-btn').disabled = true;
   ['settings', 'main', 'result'].forEach(v => {
@@ -408,6 +422,9 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+const SAFE_VERDICTS = new Set(['true','partial','false','unknown','na']);
+function sv(v) { return SAFE_VERDICTS.has(v) ? v : 'unknown'; }
+
 function scColor(v, inv) {
   const c = inv ? (v > 60 ? 'red' : v > 30 ? 'amber' : 'green') : (v >= 70 ? 'green' : v >= 40 ? 'amber' : 'red');
   return c;
@@ -439,7 +456,7 @@ function renderResult(r, urlCheckResults = []) {
   r.verdictIcon = iconMap[r.verdictIcon] || iconMap[r.verdict] || '?';
 
   const sa = r.scamAnalysis || {};
-  const scamRisk = sa.riskScore || 0;
+  const scamRisk = Math.min(100, Math.max(0, parseInt(sa.riskScore) || 0));
   const scamLevel = scamRisk >= 70 ? 'high' : scamRisk >= 35 ? 'medium' : scamRisk >= 10 ? 'low' : '';
   const scamIcons = { high:'🚨', medium:'⚠️', low:'⚡' };
   const scamTitles = { high:'ЛУЙВАРЫН ЭРСДЭЛ ӨНДӨР — ' + scamRisk + '%', medium:'ЛУЙВАРЫН ЭРСДЭЛ ДУНД — ' + scamRisk + '%', low:'БАГА ЭРСДЭЛ — ' + scamRisk + '%' };
@@ -448,7 +465,7 @@ function renderResult(r, urlCheckResults = []) {
 
   if (scamLevel) {
     const flags = (sa.redFlags || []).map(f => '<span class="scam-flag">' + esc(f) + '</span>').join('');
-    html += '<div class="scam-card ' + scamLevel + '">'
+    html += '<div class="scam-card ' + esc(scamLevel) + '">'
       + '<div class="scam-header"><span class="scam-icon">' + scamIcons[scamLevel] + '</span>'
       + '<span class="scam-title">' + scamTitles[scamLevel] + '</span></div>'
       + (sa.scamType && sa.scamType !== 'луйвар биш' ? '<div class="scam-type">Төрөл: ' + esc(sa.scamType) + '</div>' : '')
@@ -462,11 +479,12 @@ function renderResult(r, urlCheckResults = []) {
     html += renderURLChecks(urlCheckResults);
   }
 
-  html += `<div class="verdict-card ${r.verdict}">
+  const safeV = sv(r.verdict);
+  html += `<div class="verdict-card ${safeV}">
     <div class="v-top">
-      <div class="v-icon">${r.verdictIcon}</div>
-      <div><span class="v-badge ${r.verdict}">${esc(r.verdictLabel)}</span>
-      <div class="v-title" style="margin-top:4px">${vt[r.verdict]||''}</div></div>
+      <div class="v-icon">${esc(r.verdictIcon)}</div>
+      <div><span class="v-badge ${safeV}">${esc(r.verdictLabel)}</span>
+      <div class="v-title" style="margin-top:4px">${esc(vt[safeV]||'')}</div></div>
     </div>
     <div class="v-summary">${esc(r.summary)}</div>
     <div class="scores-grid">`;
@@ -480,7 +498,7 @@ function renderResult(r, urlCheckResults = []) {
     {k:'overallCredibility',l:'НИЙТ ОНОО',inv:false}
   ];
   scoreItems.forEach(si => {
-    const v = sc[si.k] || 0, col = scColor(v, si.inv);
+    const v = Math.min(100, Math.max(0, parseFloat(sc[si.k]) || 0)), col = scColor(v, si.inv);
     const isTotal = si.k === 'overallCredibility';
     html += `<div class="sc-item" style="${isTotal ? 'grid-column:1/-1;background:rgba(124,106,245,0.08);border:0.5px solid rgba(124,106,245,0.2)' : ''}">
       <div class="sc-name">${si.l}</div>
@@ -502,8 +520,8 @@ function renderResult(r, urlCheckResults = []) {
     r.domainAnalysis.forEach(d => {
       const basisColor = d.basis === 'тогтсон зөвшил' || d.basis === 'нэгдсэн судалгаа' ? '#2dd98f' : d.basis === 'маргаантай' ? '#f5a623' : '#6b6880';
       const conf = typeof d.confidence === 'number' ? d.confidence : null;
-      html += `<div class="domain-item"><div class="d-icon">${d.icon}</div><div class="d-body">
-        <div class="d-top"><span class="d-name">${esc(d.domain)}</span><span class="d-badge ${d.verdict}">${esc(d.verdictLabel)}</span>${conf !== null ? '<span style="font-size:9px;font-family:monospace;color:#6b6880;margin-left:4px">' + conf + '%</span>' : ''}</div>
+      html += `<div class="domain-item"><div class="d-icon">${esc(d.icon)}</div><div class="d-body">
+        <div class="d-top"><span class="d-name">${esc(d.domain)}</span><span class="d-badge ${sv(d.verdict)}">${esc(d.verdictLabel)}</span>${conf !== null ? '<span style="font-size:9px;font-family:monospace;color:#6b6880;margin-left:4px">' + Number(conf) + '%</span>' : ''}</div>
         ${d.basis ? '<div style="font-size:9px;font-family:monospace;color:' + basisColor + ';margin-bottom:3px">' + esc(d.basis) + '</div>' : ''}
         <div class="d-note">${esc(d.analysis)}</div>
       </div></div>`;
@@ -515,7 +533,9 @@ function renderResult(r, urlCheckResults = []) {
   if (r.claims && r.claims.length) {
     html += `<div class="section"><div class="sec-title">Claim-үүдийн задаргаа</div>`;
     r.claims.forEach(c => {
-      html += `<div class="claim-item"><span class="c-tag ${c.verdict}">${c.verdict==='true'?'Үнэн':c.verdict==='partial'?'Хагас үнэн':'Худал'}</span><div class="c-text">"${esc(c.text)}"</div><div class="c-exp">${esc(c.explanation)}</div></div>`;
+      const cv = sv(c.verdict);
+      const clabel = cv==='true'?'Үнэн':cv==='partial'?'Хагас үнэн':cv==='unknown'?'Тодорхойгүй':'Худал';
+      html += `<div class="claim-item"><span class="c-tag ${cv}">${clabel}</span><div class="c-text">"${esc(c.text)}"</div><div class="c-exp">${esc(c.explanation)}</div></div>`;
     });
     html += `</div>`;
   }
@@ -543,7 +563,7 @@ function renderResult(r, urlCheckResults = []) {
   if (r.misinformationTechniques && r.misinformationTechniques.length) {
     html += `<div class="section"><div class="sec-title">Хуурамч мэдээллийн арга техник</div>`;
     r.misinformationTechniques.forEach(m => {
-      html += `<div class="tech-item ${m.severity==='medium'?'warning':''}"><div class="tech-type">${esc(m.type)}</div><div class="tech-desc">${esc(m.description)}</div></div>`;
+      html += `<div class="tech-item ${m.severity==='medium'||m.severity==='high'?'warning':''}"><div class="tech-type">${esc(m.type)}</div><div class="tech-desc">${esc(m.description)}</div></div>`;
     });
     html += `</div>`;
   }
