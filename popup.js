@@ -19,10 +19,9 @@ const loadSteps = [
   'Нэгдсэн дүгнэлт гаргаж байна...'
 ];
 
-let stepTimer, apiKey = '', selectedModel = 'gemini-3.5-flash';
+let stepTimer, apiKey = '', selectedModel = 'gemini-2.5-flash';
 
 const FALLBACK_MODELS = [
-  'gemini-3.5-flash',
   'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
