@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<title>RealityTracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{width:420px;min-height:200px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0f;color:#f0ede8;font-size:13px;}
+.header{padding:12px 14px;border-bottom:0.5px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:8px;background:#111118;}
+.logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#7c6af5,#a594f9);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo svg{width:14px;height:14px;}
+.title{font-size:13px;font-weight:500;color:#f0ede8;flex:1;}
+.settings-btn{width:26px;height:26px;border-radius:6px;border:0.5px solid rgba(255,255,255,0.1);background:transparent;color:#6b6880;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.settings-btn:hover{border-color:rgba(255,255,255,0.2);color:#f0ede8;}
+
+/* Views */
+.view{display:none;padding:14px;}
+.view.active{display:block;}
+
+/* Settings view */
+.field-label{font-size:10px;color:#6b6880;margin-bottom:5px;font-family:monospace;letter-spacing:0.05em;}
+.field-input{width:100%;background:#1a1a24;border:0.5px solid rgba(255,255,255,0.1);border-radius:7px;padding:8px 10px;color:#f0ede8;font-size:12px;font-family:monospace;outline:none;}
+.field-input:focus{border-color:#7c6af5;}
+.api-link{font-size:11px;color:#a594f9;text-decoration:none;display:inline-block;margin-top:5px;}
+.save-api-btn{width:100%;margin-top:10px;background:#7c6af5;border:none;border-radius:7px;padding:8px;color:white;font-size:12px;font-weight:500;cursor:pointer;}
+.save-api-btn:hover{background:#6b59e0;}
+.saved-msg{font-size:11px;color:#2dd98f;margin-top:6px;display:none;font-family:monospace;}
+
+/* Main view */
+.source-tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;}
+.stab{padding:3px 9px;border-radius:12px;font-size:11px;font-family:monospace;border:0.5px solid rgba(255,255,255,0.08);color:#6b6880;cursor:pointer;background:transparent;transition:all 0.15s;}
+.stab:hover{border-color:rgba(255,255,255,0.15);color:#f0ede8;}
+.stab.active{border-color:#7c6af5;color:#a594f9;background:rgba(124,106,245,0.12);}
+.inp-label{font-size:10px;color:#6b6880;margin-bottom:5px;font-family:monospace;}
+textarea{width:100%;background:#1a1a24;border:0.5px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;color:#f0ede8;font-size:12px;font-family:-apple-system,sans-serif;line-height:1.5;resize:vertical;min-height:90px;outline:none;transition:border-color 0.15s;}
+textarea:focus{border-color:#7c6af5;}
+textarea::placeholder{color:#6b6880;}
+.selected-banner{background:rgba(124,106,245,0.08);border:0.5px solid rgba(124,106,245,0.2);border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:#a594f9;cursor:pointer;}
+.selected-banner:hover{background:rgba(124,106,245,0.12);}
+.check-btn{width:100%;margin-top:10px;background:linear-gradient(135deg,#7c6af5,#a594f9);border:none;border-radius:8px;padding:9px;color:white;font-size:12px;font-weight:500;cursor:pointer;transition:opacity 0.15s;}
+.check-btn:hover{opacity:0.9;}
+.check-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* Loading */
+.loading{display:none;text-align:center;padding:24px 14px;}
+.dots{display:flex;gap:5px;justify-content:center;margin-bottom:10px;}
+.dot{width:6px;height:6px;border-radius:50%;background:#7c6af5;animation:p 1.4s ease infinite;}
+.dot:nth-child(2){animation-delay:0.2s;}
+.dot:nth-child(3){animation-delay:0.4s;}
+@keyframes p{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+.load-text{font-size:11px;color:#6b6880;font-family:monospace;}
+.load-step{font-size:11px;color:#7c6af5;margin-top:4px;font-family:monospace;min-height:16px;}
+
+/* Result */
+.verdict-card{border-radius:10px;padding:12px 14px;margin-bottom:10px;border:0.5px solid;}
+.verdict-card.true{background:rgba(45,217,143,0.08);border-color:rgba(45,217,143,0.25);}
+.verdict-card.partial{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.25);}
+.verdict-card.false{background:rgba(245,88,88,0.08);border-color:rgba(245,88,88,0.25);}
+.verdict-card.unknown{background:#111118;border-color:rgba(255,255,255,0.1);}
+.v-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.v-icon{font-size:20px;}
+.v-badge{font-size:10px;font-family:monospace;padding:2px 7px;border-radius:10px;font-weight:500;}
+.v-badge.true{background:rgba(45,217,143,0.15);color:#2dd98f;}
+.v-badge.partial{background:rgba(245,166,35,0.15);color:#f5a623;}
+.v-badge.false{background:rgba(245,88,88,0.15);color:#f55858;}
+.v-badge.unknown{background:#1a1a24;color:#6b6880;}
+.v-title{font-size:13px;font-weight:500;color:#f0ede8;}
+.v-summary{font-size:12px;color:#6b6880;line-height:1.6;}
+
+.scores-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+.sc-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:7px 9px;}
+.sc-name{font-size:9px;color:#6b6880;font-family:monospace;margin-bottom:4px;letter-spacing:0.04em;}
+.sc-bar{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:3px;}
+.sc-fill{height:100%;border-radius:2px;}
+.sc-fill.green{background:#2dd98f;}
+.sc-fill.amber{background:#f5a623;}
+.sc-fill.red{background:#f55858;}
+.sc-val{font-size:11px;font-weight:500;font-family:monospace;}
+
+.section{background:#111118;border:0.5px solid rgba(255,255,255,0.06);border-radius:9px;padding:11px;margin-bottom:8px;}
+.sec-title{font-size:9px;color:#6b6880;font-family:monospace;letter-spacing:0.07em;margin-bottom:10px;text-transform:uppercase;}
+.domain-item{display:flex;align-items:flex-start;gap:7px;margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.domain-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.d-icon{font-size:14px;flex-shrink:0;}
+.d-body{flex:1;}
+.d-top{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.d-name{font-size:11px;font-weight:500;color:#f0ede8;}
+.d-badge{font-size:9px;font-family:monospace;padding:1px 6px;border-radius:8px;}
+.d-badge.true{background:rgba(45,217,143,0.12);color:#2dd98f;}
+.d-badge.partial{background:rgba(245,166,35,0.12);color:#f5a623;}
+.d-badge.false{background:rgba(245,88,88,0.12);color:#f55858;}
+.d-badge.na{background:#1a1a24;color:#6b6880;}
+.d-note{font-size:11px;color:#6b6880;line-height:1.5;}
+.claim-item{margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.claim-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.c-tag{display:inline-block;font-size:9px;font-family:monospace;padding:1px 6px;border-radius:3px;margin-bottom:3px;font-weight:500;}
+.c-tag.true{background:rgba(45,217,143,0.1);color:#2dd98f;}
+.c-tag.partial{background:rgba(245,166,35,0.1);color:#f5a623;}
+.c-tag.false{background:rgba(245,88,88,0.1);color:#f55858;}
+.c-text{font-size:11px;color:#f0ede8;font-style:italic;margin-bottom:3px;line-height:1.5;}
+.c-exp{font-size:11px;color:#6b6880;line-height:1.5;}
+.rvf-label{font-size:9px;font-family:monospace;margin-bottom:5px;margin-top:8px;}
+.rvf-label:first-child{margin-top:0;}
+.rvf-label.real{color:#2dd98f;}
+.rvf-label.fake{color:#f55858;}
+.rvf-label.ctx{color:#f5a623;}
+.rvf-row{font-size:11px;color:#6b6880;padding:3px 0;border-bottom:0.5px solid rgba(255,255,255,0.04);line-height:1.5;}
+.tech-item{background:#1a1a24;border-radius:6px;padding:8px;margin-bottom:6px;border-left:2px solid #f55858;}
+.tech-item.warning{border-left-color:#f5a623;}
+.tech-type{font-size:9px;font-family:monospace;color:#f55858;margin-bottom:3px;}
+.tech-item.warning .tech-type{color:#f5a623;}
+.tech-desc{font-size:11px;color:#6b6880;line-height:1.5;}
+.src-item{display:flex;gap:7px;margin-bottom:6px;padding-bottom:6px;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.src-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.src-icon{font-size:13px;flex-shrink:0;}
+.src-name{font-size:11px;font-weight:500;color:#f0ede8;margin-bottom:1px;}
+.src-rel{font-size:10px;color:#6b6880;line-height:1.4;}
+.back-btn{width:100%;padding:7px;border-radius:7px;border:0.5px solid rgba(255,255,255,0.1);background:transparent;color:#6b6880;font-size:11px;cursor:pointer;margin-top:4px;}
+.back-btn:hover{border-color:rgba(255,255,255,0.2);color:#f0ede8;}
+.error-box{background:rgba(245,88,88,0.08);border:0.5px solid rgba(245,88,88,0.2);border-radius:8px;padding:10px;font-size:11px;color:#f55858;font-family:monospace;margin-bottom:10px;line-height:1.5;display:none;}
+.scam-card{border-radius:10px;padding:12px 14px;margin-bottom:10px;border:0.5px solid;}
+.scam-card.high{background:rgba(245,88,88,0.1);border-color:rgba(245,88,88,0.35);}
+.scam-card.medium{background:rgba(245,166,35,0.1);border-color:rgba(245,166,35,0.35);}
+.scam-card.low{background:rgba(124,106,245,0.07);border-color:rgba(124,106,245,0.2);}
+.scam-header{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.scam-icon{font-size:18px;}
+.scam-title{font-size:12px;font-weight:600;font-family:monospace;letter-spacing:0.04em;}
+.scam-card.high .scam-title{color:#f55858;}
+.scam-card.medium .scam-title{color:#f5a623;}
+.scam-card.low .scam-title{color:#a594f9;}
+.scam-type{font-size:10px;font-family:monospace;color:#6b6880;margin-bottom:6px;}
+.scam-flags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.scam-flag{font-size:9px;font-family:monospace;padding:2px 7px;border-radius:10px;background:rgba(245,88,88,0.12);color:#f55858;}
+.scam-findings{font-size:11px;color:#6b6880;line-height:1.5;border-top:0.5px solid rgba(255,255,255,0.06);padding-top:7px;margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      <path d="M9 12l2 2 4-4"/>
+    </svg>
+  </div>
+  <span class="title">RealityTracker</span>
+  <button class="settings-btn" id="settings-toggle" title="Тохиргоо">⚙</button>
+</div>
+
+<!-- SETTINGS VIEW -->
+<div class="view active" id="view-settings">
+  <div class="field-label">GEMINI API ТҮЛХҮҮР</div>
+  <input type="password" class="field-input" id="api-key-input" placeholder="AIza..." />
+  <a class="api-link" href="https://aistudio.google.com/app/apikey" target="_blank">→ Google AI Studio-оос үнэгүй авах</a>
+  <div class="field-label" style="margin-top:10px">ЗАГВАР (MODEL)</div>
+  <select class="field-input" id="model-select">
+    <option value="gemini-3.5-flash">gemini-3.5-flash (2026 хамгийн шинэ)</option>
+    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+    <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (хялбар квот)</option>
+    <option value="gemini-1.5-flash">gemini-1.5-flash (найдвартай)</option>
+    <option value="gemini-1.5-flash-8b">gemini-1.5-flash-8b (хамгийн хурдан)</option>
+  </select>
+  <button class="save-api-btn" id="save-api-btn">Хадгалаад эхлэх</button>
+  <div class="saved-msg" id="saved-msg">✓ Хадгалагдлаа — шалгаж эхлэж болно</div>
+</div>
+
+<!-- MAIN VIEW -->
+<div class="view" id="view-main">
+  <div class="selected-banner" id="selected-banner" style="display:none">
+    📋 Хуудснаас сонгосон текст байна — дарж оруулах
+  </div>
+  <div class="source-tabs">
+    <button class="stab active" data-src="facebook">Facebook</button>
+    <button class="stab" data-src="twitter">X/Twitter</button>
+    <button class="stab" data-src="instagram">Instagram</button>
+    <button class="stab" data-src="news">Мэдээ</button>
+    <button class="stab" data-src="other">Бусад</button>
+  </div>
+  <div class="inp-label" id="inp-label">Шалгах текстийг оруулна уу</div>
+  <textarea id="text-input" placeholder="Пост, мэдээ, нийтлэлийн текст..."></textarea>
+  <div class="error-box" id="error-box"></div>
+  <button class="check-btn" id="check-btn">Гүнзгий шинжилгээ — 8 салбар + Вэб хайлт</button>
+</div>
+
+<!-- LOADING -->
+<div class="loading" id="view-loading">
+  <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="load-text">Gemini AI шинжилж байна...</div>
+  <div class="load-step" id="load-step">Мэдээлэл уншиж байна...</div>
+</div>
+
+<!-- RESULT VIEW -->
+<div class="view" id="view-result"></div>
+
+<script src="analytics.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

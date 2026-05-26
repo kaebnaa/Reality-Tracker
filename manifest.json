@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "RealityTracker — Факт & Луйвар Шалгагч",
+  "version": "1.2.0",
+  "description": "Мэдээлэл болон луйварыг Gemini AI + 9 салбарын мэдлэг, вэб хайлтаар шинжилнэ",
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "https://urlhaus-api.abuse.ch/*",
+    "https://egmfkfkwmrzxtbtpleht.supabase.co/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "RealityTracker"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://twitter.com/*",
+        "https://x.com/*",
+        "https://www.instagram.com/*",
+        "https://*.news.mn/*",
+        "https://*.montsame.mn/*",
+        "https://*.gogo.mn/*",
+        "https://*.ikon.mn/*",
+        "https://*.medee.mn/*",
+        "<all_urls>"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
