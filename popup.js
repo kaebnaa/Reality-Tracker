@@ -154,9 +154,9 @@ function updateCharCount() {
   const len = document.getElementById('text-input').value.length;
   const countEl = document.getElementById('char-count');
   const warnEl = document.getElementById('char-warn');
-  countEl.textContent = len.toLocaleString() + ' / 8,000';
-  countEl.className = 'char-count' + (len >= 6000 ? ' danger' : len >= 3000 ? ' warn' : '');
-  warnEl.className = 'char-warn' + (len >= 3000 ? ' show' : '');
+  countEl.textContent = len.toLocaleString() + ' / 2,500';
+  countEl.className = 'char-count' + (len >= 2200 ? ' danger' : len >= 1500 ? ' warn' : '');
+  warnEl.className = 'char-warn' + (len >= 1500 ? ' show' : '');
 }
 
 function showView(name) {
@@ -208,7 +208,7 @@ async function doCheck() {
   document.getElementById('error-box').style.display = 'none';
   if (!apiKey) { showView('settings'); return; }
   if (!text) { showErr('Шалгах текстийг оруулна уу.'); return; }
-  if (text.length > 7000) text = text.slice(0, 7000);
+  if (text.length > 2500) text = text.slice(0, 2500);
 
   document.getElementById('check-btn').disabled = true;
   ['settings', 'main', 'result'].forEach(v => {
@@ -245,6 +245,16 @@ async function doCheck() {
     renderResult(r, urlCheckResults);
     const scamRisk = r?.scamAnalysis?.riskScore || 0;
     rtTrack('check', { model: selectedModel, scam_detected: scamRisk > 50, scam_risk: scamRisk });
+    // Дэлгэрэнгүй шалгалтын дүнг DB-д хадгална
+    rtGetUserId().then(uid => {
+      const version = chrome.runtime?.getManifest?.()?.version || '1.2.0';
+      rtSaveCheck(uid, version, {
+        ...r,
+        source: currentSrc,
+        model: selectedModel,
+        textSnippet: text
+      });
+    });
   } catch(e) {
     clearInterval(stepTimer);
     finishLoading();
@@ -283,7 +293,7 @@ async function checkURLSafety(urls) {
 async function gatherWebContext(text, model) {
   const urls = extractURLs(text);
   const urlNote = urls.length ? '\n\nИлэрсэн URL: ' + urls.join(', ') : '';
-  const searchMsg = 'Дараах текстэд дурдагдсан нэр, байгууллага, URL-уудын луйвар болон найдвартай байдлын мэдээлэл хай:\n\n"' + text.slice(0, 600) + '"' + urlNote;
+  const searchMsg = 'Дараах текстэд дурдагдсан нэр, байгууллага, URL-уудын луйвар болон найдвартай байдлын мэдээлэл хай:\n\n"' + text.slice(0, 300) + '"' + urlNote;
   try {
     const res = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey,
@@ -294,7 +304,7 @@ async function gatherWebContext(text, model) {
           system_instruction: { parts: [{ text: CONTEXT_SYS }] },
           contents: [{ role: 'user', parts: [{ text: searchMsg }] }],
           tools: [{ google_search: {} }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 500 }
         })
       }
     );
@@ -340,7 +350,7 @@ async function callGeminiWithFallback(userMsg, text) {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: SYS }] },
             contents: [{ role: 'user', parts: [{ text: fullMsg }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+            generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
           })
         }
       );
