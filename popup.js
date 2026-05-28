@@ -20,6 +20,13 @@ const loadSteps = [
 ];
 
 let stepTimer, apiKey = '', selectedModel = 'gemini-2.5-flash';
+let currentPageUrl = '', currentPageTitle = '';
+
+function detectLanguage(text) {
+  if (/[Ѐ-ӿ]/.test(text)) return 'mn';
+  if (/^[\x00-\x7F]*$/.test(text)) return 'en';
+  return 'other';
+}
 
 const FALLBACK_MODELS = [
   'gemini-2.5-flash'
@@ -104,12 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initStorage() {
   try {
-    const [stored, storedModel, pending, selected] = await Promise.all([
+    const [stored, storedModel, pending, selected, savedUrl, savedTitle] = await Promise.all([
       chromeGet('gemini_api_key'),
       chromeGet('gemini_model'),
       chromeGet('pendingText'),
-      chromeGet('selectedText')
+      chromeGet('selectedText'),
+      chromeGet('currentUrl'),
+      chromeGet('pageTitle')
     ]);
+    if (savedUrl)   currentPageUrl   = savedUrl;
+    if (savedTitle) currentPageTitle = savedTitle;
 
     if (storedModel) {
       selectedModel = storedModel;
@@ -237,19 +248,25 @@ async function doCheck() {
       showView('main');
       return;
     }
-    renderResult(r, urlCheckResults);
-    const scamRisk = r?.scamAnalysis?.riskScore || 0;
-    rtTrack('check', { model: selectedModel, scam_detected: scamRisk > 50, scam_risk: scamRisk });
-    // Дэлгэрэнгүй шалгалтын дүнг DB-д хадгална
-    rtGetUserId().then(uid => {
+    // Supabase-д бүртгэж checkId авна, feedback UI-д дамжуулна
+    let checkId = null;
+    try {
+      const uid = await rtGetUserId();
       const version = chrome.runtime?.getManifest?.()?.version || '1.2.0';
-      rtSaveCheck(uid, version, {
+      checkId = await rtSaveCheck(uid, version, {
         ...r,
         source: currentSrc,
         model: selectedModel,
-        textSnippet: text
+        textSnippet: text,
+        rawResult: r,
+        sourceUrl: currentPageUrl || null,
+        pageTitle: currentPageTitle || null,
+        language: detectLanguage(text)
       });
-    });
+    } catch (e) {
+      console.error('[RT] save check error:', e);
+    }
+    renderResult(r, urlCheckResults, checkId);
   } catch(e) {
     clearInterval(stepTimer);
     finishLoading();
@@ -453,7 +470,7 @@ function renderURLChecks(urlCheckResults) {
   return html + '</div>';
 }
 
-function renderResult(r, urlCheckResults = []) {
+function renderResult(r, urlCheckResults = [], checkId = null) {
   finishLoading();
   const sc = r.scores || {};
   const vt = { true:'Үнэн байна', partial:'Хэсэгчлэн үнэн', false:'Худал байна', unknown:'Шалгах боломжгүй' };
@@ -583,12 +600,45 @@ function renderResult(r, urlCheckResults = []) {
     html += `</div>`;
   }
 
+  if (checkId) {
+    html += `<div id="feedback-section" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">
+      <p style="font-size:11px;color:#6b6880;margin-bottom:8px;text-align:center;">Энэ дүн зөв байсан уу?</p>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button id="feedback-positive" class="feedback-btn positive">👍 Зөв</button>
+        <button id="feedback-negative" class="feedback-btn negative">👎 Буруу</button>
+      </div>
+    </div>`;
+  }
+
   html += `<button class="back-btn" id="back-btn">← Буцаж шалгах</button></div>`;
 
   const resultEl = document.getElementById('view-result');
   resultEl.innerHTML = html;
   resultEl.classList.add('active');
   document.getElementById('back-btn').addEventListener('click', goBack);
+
+  if (checkId) {
+    document.getElementById('feedback-positive')?.addEventListener('click', () => submitFeedback(checkId, 1));
+    document.getElementById('feedback-negative')?.addEventListener('click', () => submitFeedback(checkId, -1));
+  }
+}
+
+async function submitFeedback(checkId, value) {
+  const key = 'fb_' + checkId;
+  const existing = await chromeGet(key);
+  if (existing) return;
+  await new Promise(resolve => chrome.storage.local.set({ [key]: String(value) }, resolve));
+
+  await fetch('https://realitytracker.vercel.app/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ checkId, feedback: value })
+  }).catch(() => {});
+
+  const section = document.getElementById('feedback-section');
+  if (section) {
+    section.innerHTML = `<p style="font-size:11px;color:${value===1?'#64dc64':'#f5a623'};text-align:center;">✓ Баярлалаа! Таны үнэлгээ бидний загварыг сайжруулахад тусална.</p>`;
+  }
 }
 
 function goBack() {
